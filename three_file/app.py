@@ -3,6 +3,7 @@ from pathlib import Path
 from flask import Flask, request, send_file, render_template_string, make_response
 from werkzeug.exceptions import RequestEntityTooLarge, ClientDisconnected, BadRequest
 from generator import build_report
+from excel_overlay import apply_excel_activity_overlay
 from footnote_fix import fix_footnote_format
 
 app = Flask(__name__)
@@ -13,17 +14,15 @@ TEMPLATE = BASE / 'report_template.docx'
 def ensure_template():
     if TEMPLATE.exists() and TEMPLATE.stat().st_size > 1000:
         return
-    parts=[]
-    i=0
+    parts=[]; i=0
     while True:
         v=os.environ.get(f'REPORT_TEMPLATE_B64_{i}')
         if v is None: break
         parts.append(v.strip()); i += 1
-    if parts:
-        TEMPLATE.write_bytes(base64.b64decode(''.join(parts)))
+    if parts: TEMPLATE.write_bytes(base64.b64decode(''.join(parts)))
 ensure_template()
 
-HTML='''<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tạo báo cáo tuần VKSND tỉnh Ninh Bình</title><style>*{box-sizing:border-box}body{font-family:Arial;background:#f4f6f8;margin:0;color:#1f2937}.wrap{max-width:780px;margin:24px auto;padding:14px}.card{background:#fff;border-radius:14px;padding:24px;box-shadow:0 8px 28px #0001}.brand{font-weight:700;color:#991b1b;font-size:22px}.sub,.note{line-height:1.55}.sub{color:#4b5563;margin:8px 0 20px}.field{margin:16px 0}.field label{display:block;font-weight:700;margin-bottom:7px}.field input{width:100%;border:1px solid #d1d5db;padding:12px;border-radius:8px}.fn{font-size:13px;color:#166534;margin-top:6px}.btn{width:100%;border:0;border-radius:9px;padding:15px;background:#991b1b;color:#fff;font-weight:700;font-size:16px}.status{display:none;margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px}.note{margin-top:16px;padding:12px;background:#ecfdf5;border-radius:8px;font-size:13px}.err{background:#fef2f2;color:#991b1b;padding:12px;border-radius:8px;margin-bottom:15px}</style></head><body><div class="wrap"><div class="card"><div class="brand">TẠO BÁO CÁO TUẦN — BẢN 3 FILE</div><div class="sub">Chỉ tải 3 tệp: Excel tổng hợp, báo cáo Phòng 7 và báo cáo Phòng 9. Mẫu Word chuẩn đã tích hợp sẵn trong hệ thống.</div>{% if error %}<div class="err">{{error}}</div>{% endif %}<form id="f" method="post" enctype="multipart/form-data"><div class="field"><label>1. Bảng Excel báo cáo tuần</label><input id="excel" name="excel" type="file" accept=".xlsx" required><div class="fn" id="excelName"></div></div><div class="field"><label>2. Báo cáo Phòng 7</label><input id="p7" name="p7" type="file" accept=".doc,.docx" required><div class="fn" id="p7Name"></div></div><div class="field"><label>3. Báo cáo Phòng 9</label><input id="p9" name="p9" type="file" accept=".doc,.docx" required><div class="fn" id="p9Name"></div></div><button class="btn" id="b">TẠO VÀ TẢI BÁO CÁO WORD</button><div class="status" id="s">Đang tạo báo cáo Word…</div></form><div class="note"><b>Đầu ra:</b> giữ form mẫu chuẩn; số liệu tự động điền màu đỏ; footnote hiển thị dạng số mũ; cập nhật nội dung từ Excel, Phòng 7, Phòng 9 và phụ lục chỉ tiêu.</div></div></div><script>['excel','p7','p9'].forEach(x=>document.getElementById(x).onchange=e=>document.getElementById(x+'Name').textContent=e.target.files[0]?'Đã chọn: '+e.target.files[0].name:'');document.getElementById('f').onsubmit=()=>{document.getElementById('b').disabled=true;document.getElementById('s').style.display='block'}</script></body></html>'''
+HTML='''<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tạo báo cáo tuần VKSND tỉnh Ninh Bình</title><style>*{box-sizing:border-box}body{font-family:Arial;background:#f4f6f8;margin:0;color:#1f2937}.wrap{max-width:780px;margin:24px auto;padding:14px}.card{background:#fff;border-radius:14px;padding:24px;box-shadow:0 8px 28px #0001}.brand{font-weight:700;color:#991b1b;font-size:22px}.sub,.note{line-height:1.55}.sub{color:#4b5563;margin:8px 0 20px}.field{margin:16px 0}.field label{display:block;font-weight:700;margin-bottom:7px}.field input{width:100%;border:1px solid #d1d5db;padding:12px;border-radius:8px}.fn{font-size:13px;color:#166534;margin-top:6px}.btn{width:100%;border:0;border-radius:9px;padding:15px;background:#991b1b;color:#fff;font-weight:700;font-size:16px}.status{display:none;margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px}.note{margin-top:16px;padding:12px;background:#ecfdf5;border-radius:8px;font-size:13px}.err{background:#fef2f2;color:#991b1b;padding:12px;border-radius:8px;margin-bottom:15px}</style></head><body><div class="wrap"><div class="card"><div class="brand">TẠO BÁO CÁO TUẦN — BẢN 3 FILE</div><div class="sub">Excel là nguồn số liệu chính cho toàn bộ báo cáo; Phòng 7 và Phòng 9 bổ sung nội dung nghiệp vụ riêng. Mẫu Word chuẩn đã tích hợp sẵn.</div>{% if error %}<div class="err">{{error}}</div>{% endif %}<form id="f" method="post" enctype="multipart/form-data"><div class="field"><label>1. Bảng Excel báo cáo tuần</label><input id="excel" name="excel" type="file" accept=".xlsx" required><div class="fn" id="excelName"></div></div><div class="field"><label>2. Báo cáo Phòng 7</label><input id="p7" name="p7" type="file" accept=".doc,.docx" required><div class="fn" id="p7Name"></div></div><div class="field"><label>3. Báo cáo Phòng 9</label><input id="p9" name="p9" type="file" accept=".doc,.docx" required><div class="fn" id="p9Name"></div></div><button class="btn" id="b">TẠO VÀ TẢI BÁO CÁO WORD</button><div class="status" id="s">Đang quét toàn bộ Excel và tạo báo cáo Word…</div></form><div class="note"><b>Đầu ra:</b> quét toàn bộ các sheet Excel, gồm số liệu giải quyết và hoạt động kiểm sát; số liệu đưa vào Word hiển thị màu đỏ; footnote lấy theo đơn vị phát sinh trong Excel và trình bày theo mẫu báo cáo tuần VKS tỉnh, ký hiệu footnote dạng số mũ; cập nhật phụ lục chỉ tiêu.</div></div></div><script>['excel','p7','p9'].forEach(x=>document.getElementById(x).onchange=e=>document.getElementById(x+'Name').textContent=e.target.files[0]?'Đã chọn: '+e.target.files[0].name:'');document.getElementById('f').onsubmit=()=>{document.getElementById('b').disabled=true;document.getElementById('s').style.display='block'}</script></body></html>'''
 
 def render_page(error=None,status=200):
     r=make_response(render_template_string(HTML,error=error),status); r.headers['Cache-Control']='no-store'; return r
@@ -39,7 +38,7 @@ def valid_docx(path):
     except: return False
 
 @app.get('/health')
-def health(): return {'ok':valid_docx(TEMPLATE),'version':'three-file-full-v2','inputs':3,'embedded_template':True,'footnote_superscript':True,'appendix_update':True}
+def health(): return {'ok':valid_docx(TEMPLATE),'version':'three-file-full-v3-excel-all','inputs':3,'embedded_template':True,'excel_all_sheets':True,'activity_overlay':True,'footnote_from_excel':True,'footnote_superscript':True,'appendix_update':True,'red_excel_numbers':True}
 @app.errorhandler(RequestEntityTooLarge)
 def too_large(e): return render_page('Tổng dung lượng 3 tệp vượt quá 60 MB.',413)
 @app.route('/',methods=['GET','POST'])
@@ -54,7 +53,9 @@ def index():
             td=Path(td0); ep=td/'input.xlsx'; p7p=td/('p7'+Path(p7.filename).suffix.lower()); p9p=td/('p9'+Path(p9.filename).suffix.lower()); out=td/'Bao_cao_tuan_VKSND_tinh_Ninh_Binh.docx'
             ex.save(ep); p7.save(p7p); p9.save(p9p)
             if not valid_xlsx(ep): return render_page('File Excel không hợp lệ.',400)
-            build_report(str(TEMPLATE),str(ep),str(p7p),str(p9p),str(out)); fix_footnote_format(out)
+            build_report(str(TEMPLATE),str(ep),str(p7p),str(p9p),str(out))
+            apply_excel_activity_overlay(str(out),str(ep))
+            fix_footnote_format(out)
             if not valid_docx(out): raise RuntimeError('File Word đầu ra không hợp lệ.')
             data=out.read_bytes()
         return send_file(io.BytesIO(data),as_attachment=True,download_name='Bao_cao_tuan_VKSND_tinh_Ninh_Binh.docx',mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
