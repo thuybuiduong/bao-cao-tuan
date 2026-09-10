@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Dùng bộ xử lý số liệu đã kiểm tra ổn định ở commit 3421662.
 RUN curl -fsSL https://raw.githubusercontent.com/thuybuiduong/bao-cao-tuan/3421662dc337bdf93d27b2814f116dcb5a3cb836/patch/c00.txt -o /tmp/c00 \
     && curl -fsSL https://raw.githubusercontent.com/thuybuiduong/bao-cao-tuan/3421662dc337bdf93d27b2814f116dcb5a3cb836/patch/c01.txt -o /tmp/c01 \
     && curl -fsSL https://raw.githubusercontent.com/thuybuiduong/bao-cao-tuan/3421662dc337bdf93d27b2814f116dcb5a3cb836/patch/c02.txt -o /tmp/c02 \
@@ -21,9 +20,8 @@ RUN curl -fsSL https://raw.githubusercontent.com/thuybuiduong/bao-cao-tuan/34216
 
 RUN pip install --no-cache-dir -r requirements.txt waitress==3.0.2 lxml==6.1.3
 
-COPY doc_support/app.py /app/app.py
-COPY doc_support/footnote_fix.py /app/footnote_fix.py
+COPY doc_support/debug_server.py /app/debug_server.py
 
 EXPOSE 10000
 
-CMD ["sh","-c","waitress-serve --listen=0.0.0.0:${PORT:-10000} --threads=4 app:app"]
+CMD ["sh","-c","waitress-serve --listen=0.0.0.0:${PORT:-10000} --threads=4 debug_server:app"]
