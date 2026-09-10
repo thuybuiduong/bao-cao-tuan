@@ -10,6 +10,8 @@ RUN cat /tmp/gen_v4_patch/p*.txt | base64 -d | gzip -dc > /tmp/generator_v4.patc
 COPY template_b64 /tmp/template_b64
 RUN cat /tmp/template_b64/p*.txt | base64 -d > /app/report_template.docx && python -c "import zipfile; z=zipfile.ZipFile('/app/report_template.docx'); assert 'word/document.xml' in z.namelist()"
 COPY three_file/app.py /app/app.py
+COPY three_file/excel_overlay.py /app/excel_overlay.py
 COPY doc_support/footnote_fix.py /app/footnote_fix.py
+RUN python -m py_compile /app/app.py /app/excel_overlay.py /app/footnote_fix.py
 EXPOSE 10000
 CMD ["sh","-c","waitress-serve --listen=0.0.0.0:${PORT:-10000} --threads=4 app:app"]
