@@ -4,10 +4,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends libreoffice-wri
 WORKDIR /app
 RUN pip install --no-cache-dir flask==3.1.2 werkzeug==3.1.3 python-docx==1.2.0 openpyxl==3.1.5 lxml==6.1.3 waitress==3.0.2
 
-# Mẫu nền duy nhất: Báo cáo tuần VKSND tỉnh Ninh Bình 09/9/2026.
-COPY province_template /tmp/province_template
-RUN cat /tmp/province_template/p*.txt | base64 -d > /app/report_template.docx && \
-    python -c "from pathlib import Path; import hashlib,zipfile; from docx import Document; p=Path('/app/report_template.docx'); raw=p.read_bytes(); sha=hashlib.sha256(raw).hexdigest(); assert len(raw)==77823,(len(raw),sha); assert sha=='2035af2ca321117f0373d8de5d9b84bd0074b6cfa0e7a2bb85f169601ba6bff3',sha; z=zipfile.ZipFile(p); n=set(z.namelist()); assert 'word/document.xml' in n and 'word/styles.xml' in n and 'word/footnotes.xml' in n and '[Content_Types].xml' in n; d=Document(p); t=' '.join(x.text for x in d.paragraphs); assert 'TỈNH NINH BÌNH' in t and 'Tình hình tội phạm và kết quả công tác tuần' in t; print('PROVINCE_TEMPLATE_OK',len(raw),sha,len(d.paragraphs),len(d.tables))"
+# Mẫu tạm chỉ để build; khi khởi động, template_env.py sẽ thay bằng đúng file VKS tỉnh từ biến môi trường và kiểm tra SHA-256.
+COPY template_b64 /tmp/template_b64
+RUN cat /tmp/template_b64/p*.txt | base64 -d > /app/report_template.docx && python -c "import zipfile; z=zipfile.ZipFile('/app/report_template.docx'); assert 'word/document.xml' in z.namelist() and 'word/styles.xml' in z.namelist()"
 
 COPY complete_new/core_parts /tmp/core_parts
 RUN cat /tmp/core_parts/p*.txt | base64 -d | gzip -dc > /app/core_overlay.py && python -m py_compile /app/core_overlay.py
@@ -16,7 +15,8 @@ RUN cat /tmp/office_overlay.b64 | base64 -d | gzip -dc > /app/office_overlay.py 
 COPY three_file/excel_overlay.py /app/excel_overlay.py
 COPY doc_support/footnote_fix.py /app/footnote_fix.py
 COPY complete_new/app.py /app/app.py
+COPY template_env.py /app/template_env.py
 COPY patch_app_provincial_guard.py /tmp/patch_app_provincial_guard.py
-RUN python /tmp/patch_app_provincial_guard.py && python -m py_compile /app/app.py /app/excel_overlay.py /app/footnote_fix.py
+RUN python /tmp/patch_app_provincial_guard.py && python -m py_compile /app/app.py /app/excel_overlay.py /app/footnote_fix.py /app/template_env.py
 EXPOSE 10000
-CMD ["sh","-c","waitress-serve --listen=0.0.0.0:${PORT:-10000} --threads=4 app:app"]
+CMD ["sh","-c","python /app/template_env.py && waitress-serve --listen=0.0.0.0:${PORT:-10000} --threads=4 app:app"]
