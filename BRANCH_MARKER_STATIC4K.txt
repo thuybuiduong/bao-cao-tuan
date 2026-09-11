@@ -1,0 +1,1 @@
+Nhanh nay dung bo mau VKS tinh chia 26 manh ngan trong template_b64 de tranh loi cat chuoi tren Render.
