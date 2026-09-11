@@ -31,8 +31,8 @@ def valid_docx(path):
     except Exception: return False
 
 def structural_guard(path, template_path):
-    """Chỉ chặn khi tài liệu bị mất cấu trúc nghiêm trọng.
-    Không kiểm tra theo tên tiêu đề cố định vì tiêu đề/đánh số có thể thay đổi giữa các tuần.
+    """Chỉ chặn khi tài liệu thực sự bị mất cấu trúc đáng kể.
+    So sánh tương đối với chính mẫu Word, không dùng ngưỡng tuyệt đối lớn hơn mẫu.
     """
     doc=Document(path)
     base=Document(template_path)
@@ -43,17 +43,24 @@ def structural_guard(path, template_path):
     text_len=sum(len(p.text or '') for p in doc.paragraphs)
     base_text_len=max(1,sum(len(p.text or '') for p in base.paragraphs))
     problems=[]
-    if para_count < max(40, int(base_para_count*0.55)):
+
+    min_para_count=max(1, int(base_para_count * 0.55))
+    if para_count < min_para_count and (base_para_count - para_count) >= 5:
         problems.append(f'số đoạn văn giảm bất thường ({para_count}/{base_para_count})')
-    if base_table_count and table_count < base_table_count:
-        problems.append(f'số bảng bị thiếu ({table_count}/{base_table_count})')
-    if text_len < max(1500, int(base_text_len*0.45)):
+
+    if base_table_count:
+        min_table_count=max(1, (base_table_count + 1) // 2)
+        if table_count < min_table_count and (base_table_count - table_count) >= 2:
+            problems.append(f'số bảng bị thiếu ({table_count}/{base_table_count})')
+
+    min_text_len=max(300, int(base_text_len * 0.45))
+    if text_len < min_text_len and (base_text_len - text_len) >= 500:
         problems.append(f'nội dung văn bản giảm bất thường ({text_len}/{base_text_len} ký tự)')
     return problems
 
 @app.get('/health')
 def health():
-    return {'ok':valid_docx(TEMPLATE),'version':'complete-new-v2-structural-guard','inputs':3,'template_first':True,'structural_guard':True,'red_excel_numbers':True,'footnote_superscript':True}
+    return {'ok':valid_docx(TEMPLATE),'version':'complete-new-v3-relative-structural-guard','inputs':3,'template_first':True,'structural_guard':True,'red_excel_numbers':True,'footnote_superscript':True}
 
 @app.errorhandler(RequestEntityTooLarge)
 def too_large(e): return render_page('Tổng dung lượng 3 tệp vượt quá 60 MB.',413)
