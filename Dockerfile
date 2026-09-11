@@ -10,8 +10,9 @@ RUN cat /tmp/core_parts/p*.txt | base64 -d | gzip -dc > /app/core_overlay.py && 
 COPY complete_new/office_overlay.py.gz.b64 /tmp/office_overlay.b64
 RUN cat /tmp/office_overlay.b64 | base64 -d | gzip -dc > /app/office_overlay.py && python -m py_compile /app/office_overlay.py
 COPY three_file/excel_overlay.py /app/excel_overlay.py
+COPY three_file/final_fix.py /app/final_fix.py
 COPY doc_support/footnote_fix.py /app/footnote_fix.py
 COPY complete_new/app.py /app/app.py
-RUN python -m py_compile /app/app.py /app/excel_overlay.py /app/footnote_fix.py
+RUN python -m py_compile /app/app.py /app/excel_overlay.py /app/final_fix.py /app/footnote_fix.py
 EXPOSE 10000
 CMD ["sh","-c","waitress-serve --listen=0.0.0.0:${PORT:-10000} --threads=4 app:app"]
