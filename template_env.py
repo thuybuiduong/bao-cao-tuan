@@ -4,7 +4,7 @@ from pathlib import Path
 OUT = Path('/app/report_template.docx')
 EXPECTED_LEN = 77823
 EXPECTED_SHA256 = '2035af2ca321117f0373d8de5d9b84bd0074b6cfa0e7a2bb85f169601ba6bff3'
-PARTS = 12
+PARTS = 13
 
 vals = []
 for i in range(PARTS):
