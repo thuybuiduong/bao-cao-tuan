@@ -5,6 +5,7 @@ from werkzeug.exceptions import RequestEntityTooLarge, ClientDisconnected, BadRe
 from core_overlay import update_core
 from office_overlay import overlay_office
 from excel_overlay import apply_excel_activity_overlay
+from final_fix import apply_final_corrections
 from footnote_fix import fix_footnote_format
 from docx import Document
 
@@ -43,16 +44,13 @@ def structural_guard(path, template_path):
     text_len=sum(len(p.text or '') for p in doc.paragraphs)
     base_text_len=max(1,sum(len(p.text or '') for p in base.paragraphs))
     problems=[]
-
     min_para_count=max(1, int(base_para_count * 0.55))
     if para_count < min_para_count and (base_para_count - para_count) >= 5:
         problems.append(f'số đoạn văn giảm bất thường ({para_count}/{base_para_count})')
-
     if base_table_count:
         min_table_count=max(1, (base_table_count + 1) // 2)
         if table_count < min_table_count and (base_table_count - table_count) >= 2:
             problems.append(f'số bảng bị thiếu ({table_count}/{base_table_count})')
-
     min_text_len=max(300, int(base_text_len * 0.45))
     if text_len < min_text_len and (base_text_len - text_len) >= 500:
         problems.append(f'nội dung văn bản giảm bất thường ({text_len}/{base_text_len} ký tự)')
@@ -60,7 +58,7 @@ def structural_guard(path, template_path):
 
 @app.get('/health')
 def health():
-    return {'ok':valid_docx(TEMPLATE),'version':'complete-new-v3-relative-structural-guard','inputs':3,'template_first':True,'structural_guard':True,'red_excel_numbers':True,'footnote_superscript':True}
+    return {'ok':valid_docx(TEMPLATE),'version':'complete-new-v4-final-fix-activity-footnotes','inputs':3,'template_first':True,'structural_guard':True,'red_excel_numbers':True,'footnote_superscript':True,'final_fix':True}
 
 @app.errorhandler(RequestEntityTooLarge)
 def too_large(e): return render_page('Tổng dung lượng 3 tệp vượt quá 60 MB.',413)
@@ -84,6 +82,7 @@ def index():
             update_core(str(TEMPLATE),str(ep),str(out))
             overlay_office(str(out),str(p7p),str(p9p))
             apply_excel_activity_overlay(str(out),str(ep))
+            apply_final_corrections(str(out),str(ep))
             fix_footnote_format(str(out))
             if not valid_docx(out): raise RuntimeError('File Word đầu ra không hợp lệ.')
             problems=structural_guard(out,TEMPLATE)
