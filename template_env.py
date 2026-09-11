@@ -4,7 +4,7 @@ from pathlib import Path
 OUT = Path('/app/report_template.docx')
 EXPECTED_LEN = 77823
 EXPECTED_SHA256 = '2035af2ca321117f0373d8de5d9b84bd0074b6cfa0e7a2bb85f169601ba6bff3'
-PARTS = 26
+PARTS = 12
 
 vals = []
 for i in range(PARTS):
@@ -23,4 +23,4 @@ with zipfile.ZipFile(OUT) as z:
     for req in ('word/document.xml','word/styles.xml','word/footnotes.xml','[Content_Types].xml'):
         if req not in names:
             raise RuntimeError(f'VKS template missing {req}')
-print(f'VKS_TEMPLATE_OK len={len(raw)} sha256={sha}')
+print(f'VKS_TEMPLATE_OK len={len(raw)} sha256={sha}', flush=True)
