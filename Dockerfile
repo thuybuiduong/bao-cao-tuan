@@ -5,8 +5,8 @@ WORKDIR /app
 RUN pip install --no-cache-dir flask==3.1.2 werkzeug==3.1.3 python-docx==1.2.0 openpyxl==3.1.5 lxml==6.1.3 waitress==3.0.2
 COPY template_b64 /tmp/template_b64
 RUN cat /tmp/template_b64/p*.txt | base64 -d > /app/report_template.docx && python -c "import zipfile; z=zipfile.ZipFile('/app/report_template.docx'); assert 'word/document.xml' in z.namelist() and 'word/styles.xml' in z.namelist()"
-COPY complete_new/core_overlay.py.gz.b64 /tmp/core_overlay.b64
-RUN cat /tmp/core_overlay.b64 | base64 -d | gzip -dc > /app/core_overlay.py && python -m py_compile /app/core_overlay.py
+COPY complete_new/core_parts /tmp/core_parts
+RUN cat /tmp/core_parts/p*.txt | base64 -d | gzip -dc > /app/core_overlay.py && python -m py_compile /app/core_overlay.py
 COPY complete_new/office_overlay.py.gz.b64 /tmp/office_overlay.b64
 RUN cat /tmp/office_overlay.b64 | base64 -d | gzip -dc > /app/office_overlay.py && python -m py_compile /app/office_overlay.py
 COPY three_file/excel_overlay.py /app/excel_overlay.py
